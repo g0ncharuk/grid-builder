@@ -15,13 +15,20 @@ export const BREAKPOINTS: BreakpointDefinition[] = [
 
 export const BREAKPOINT_ORDER: Breakpoint[] = BREAKPOINTS.map((bp) => bp.value);
 
+export const createTracks = (count: number) => 
+  Array.from({ length: count }).map((_, i) => ({ 
+    id: `track-${Date.now()}-${i}`, 
+    value: 1, 
+    unit: "fr" as const 
+  }));
+
 export const DEFAULT_GRID_SETTINGS: GridSettingsMap = {
-  xs: { cols: 1, rows: 1, gap: 4 },
-  sm: { cols: 4, rows: 4, gap: 4 },
-  md: { cols: 4, rows: 4, gap: 4 },
-  lg: { cols: 4, rows: 4, gap: 4 },
-  xl: { cols: 4, rows: 4, gap: 4 },
-  "2xl": { cols: 4, rows: 4, gap: 4 },
+  xs: { cols: 1, rows: 1, gap: 4, colTracks: createTracks(1), rowTracks: createTracks(1) },
+  sm: { cols: 4, rows: 4, gap: 4, colTracks: createTracks(4), rowTracks: createTracks(4) },
+  md: { cols: 4, rows: 4, gap: 4, colTracks: createTracks(4), rowTracks: createTracks(4) },
+  lg: { cols: 4, rows: 4, gap: 4, colTracks: createTracks(4), rowTracks: createTracks(4) },
+  xl: { cols: 4, rows: 4, gap: 4, colTracks: createTracks(4), rowTracks: createTracks(4) },
+  "2xl": { cols: 4, rows: 4, gap: 4, colTracks: createTracks(4), rowTracks: createTracks(4) },
 };
 
 export const COLORS = [

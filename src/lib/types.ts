@@ -16,11 +16,23 @@ export interface GridItem {
   id: number;
   color: string;
   layout: LayoutMap;
+  subGrid?: GridSettingsMap;
+  children?: GridItem[];
+}
+
+export type TrackUnit = "fr" | "px" | "rem" | "%" | "auto" | "min-content" | "max-content";
+
+export interface Track {
+  id: string;
+  value: number;
+  unit: TrackUnit;
 }
 
 export interface GridSetting {
   cols: number;
   rows: number;
+  colTracks: Track[];
+  rowTracks: Track[];
   gap: number;
 }
 

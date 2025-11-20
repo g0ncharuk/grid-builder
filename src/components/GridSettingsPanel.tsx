@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { GridSetting } from "@/lib/types";
 import { GAP_OPTIONS } from "@/lib/constants";
@@ -18,23 +19,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { NumberInput } from "./number-input";
+import { TrackEditor } from "./TrackEditor";
 import { 
   Download, 
   Upload, 
   Plus, 
   Trash2, 
-  Settings2
+  Settings2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 interface GridSettingsPanelProps {
   settings: GridSetting;
-  onSettingChange: (key: keyof GridSetting, value: number) => void;
+  onSettingChange: (key: keyof GridSetting, value: any) => void;
   onAddItem: () => void;
   onClearItems: () => void;
   onExport: () => void;
   onImport: () => void;
   onApplyTemplate: (name: string) => void;
   templates: { name: string; label: string; intent: string }[];
+  title?: string;
+  onConvertToGrid?: () => void;
 }
 
 export function GridSettingsPanel({
@@ -46,7 +52,11 @@ export function GridSettingsPanel({
   onImport,
   onApplyTemplate,
   templates,
+  title,
+  onConvertToGrid,
 }: GridSettingsPanelProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   return (
     <Card 
       className="border-0 shadow-xl shadow-indigo-500/5 ring-1 ring-slate-200 dark:ring-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden"
@@ -55,7 +65,7 @@ export function GridSettingsPanel({
       <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
         <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-200">
           <Settings2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-          Configuration
+          {title || "Configuration"}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6 pt-6">
@@ -97,6 +107,34 @@ export function GridSettingsPanel({
           </Select>
         </SettingsField>
 
+        {/* Advanced Track Sizing Toggle */}
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full flex items-center justify-between text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 px-0 hover:bg-transparent"
+          >
+            <span>Advanced Track Sizing</span>
+            {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </Button>
+          
+          {showAdvanced && (
+            <div className="mt-4 space-y-6 animate-in slide-in-from-top-2 duration-200">
+               <TrackEditor 
+                 label="Column Tracks" 
+                 tracks={settings.colTracks || []} 
+                 onChange={(t) => onSettingChange("colTracks", t)} 
+               />
+               <TrackEditor 
+                 label="Row Tracks" 
+                 tracks={settings.rowTracks || []} 
+                 onChange={(t) => onSettingChange("rowTracks", t)} 
+               />
+            </div>
+          )}
+        </div>
+
         <div className="h-px bg-slate-100 dark:bg-slate-800" />
 
         <div className="space-y-3">
@@ -117,6 +155,16 @@ export function GridSettingsPanel({
               <Trash2 className="w-4 h-4 mr-2" />
               Clear
             </Button>
+            {onConvertToGrid && (
+              <Button 
+                variant="secondary" 
+                className="col-span-2 w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200" 
+                onClick={onConvertToGrid}
+              >
+                <Settings2 className="w-4 h-4 mr-2" />
+                Convert Selected to Grid
+              </Button>
+            )}
           </div>
         </div>
 

@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Breakpoint, GridItem, ItemLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Copy, Trash2, Layers, ArrowLeft, ArrowRight } from "lucide-react";
+import { Copy, Trash2, Layers, ArrowLeft, ArrowRight, Grid } from "lucide-react";
 
 interface ItemsPanelProps {
   items: GridItem[];
@@ -16,10 +16,13 @@ interface ItemsPanelProps {
   onRemove: (itemId: number) => void;
   onDuplicate: (itemId: number) => void;
   onCopyFrom: (direction: "prev" | "next") => void;
+  onConvertToGrid: (itemId: number) => void;
   canCopyPrev: boolean;
   canCopyNext: boolean;
   selectedItemId: number | null;
   onSelect: (id: number | null) => void;
+  parentItem?: GridItem | null;
+  onNavigateUp?: () => void;
 }
 
 const fields: Array<{
@@ -47,10 +50,13 @@ export function ItemsPanel({
   onDuplicate,
   onRemove,
   onCopyFrom,
+  onConvertToGrid,
   canCopyPrev,
   canCopyNext,
   selectedItemId,
   onSelect,
+  parentItem,
+  onNavigateUp,
 }: ItemsPanelProps) {
   return (
     <Card 
@@ -59,10 +65,24 @@ export function ItemsPanel({
     >
       <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-200">
-            <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-            Items <span className="text-slate-400 dark:text-slate-500 font-normal">({items.length})</span>
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            {parentItem && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 -ml-2 mr-1" 
+                onClick={onNavigateUp}
+                title="Back to Parent Grid"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 dark:text-slate-200">
+              <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+              {parentItem ? `Subgrid ${parentItem.id}` : "Items"} 
+              <span className="text-slate-400 dark:text-slate-500 font-normal">({items.length})</span>
+            </CardTitle>
+          </div>
           <span className="px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold uppercase tracking-wide">
             {breakpoint}
           </span>
@@ -114,6 +134,7 @@ export function ItemsPanel({
                 onUpdate={onUpdate}
                 onDuplicate={onDuplicate}
                 onRemove={onRemove}
+                onConvertToGrid={onConvertToGrid}
                 selectedItemId={selectedItemId}
                 onSelect={onSelect}
               />
@@ -132,6 +153,7 @@ function ItemCard({
   onUpdate,
   onDuplicate,
   onRemove,
+  onConvertToGrid,
   selectedItemId,
   onSelect,
 }: {
@@ -141,6 +163,7 @@ function ItemCard({
   onUpdate: (itemId: number, field: keyof ItemLayout, value: string) => void;
   onDuplicate: (itemId: number) => void;
   onRemove: (itemId: number) => void;
+  onConvertToGrid: (itemId: number) => void;
   selectedItemId: number | null;
   onSelect: (id: number | null) => void;
 }) {
@@ -167,13 +190,34 @@ function ItemCard({
             {index + 1}
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-200">
-              Item {index + 1}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-200">
+                Item {index + 1}
+              </p>
+              {item.subGrid && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                  Grid
+                </span>
+              )}
+            </div>
             <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500">ID: {item.id}</p>
           </div>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {!item.subGrid && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+              onClick={(e) => {
+                e.stopPropagation();
+                onConvertToGrid(item.id);
+              }}
+              title="Convert to Grid"
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

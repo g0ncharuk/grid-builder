@@ -60,7 +60,12 @@ export const cloneGridSettings = (
 ): GridSettingsMap => {
   const copy = {} as GridSettingsMap
   BREAKPOINT_ORDER.forEach((bp) => {
-    copy[bp] = { ...settings[bp] }
+    const setting = settings[bp]
+    copy[bp] = {
+      ...setting,
+      colTracks: setting.colTracks?.map((t) => ({ ...t })) || [],
+      rowTracks: setting.rowTracks?.map((t) => ({ ...t })) || [],
+    }
   })
   return copy
 }
@@ -110,74 +115,141 @@ const prefixMap: Record<Breakpoint, string> = {
   '2xl': '2xl:',
 }
 
+const getTrackString = (tracks: { value: number; unit: string }[]) => {
+  return tracks
+    .map((t) => {
+      if (
+        t.unit === 'auto' ||
+        t.unit === 'min-content' ||
+        t.unit === 'max-content'
+      )
+        return t.unit
+      return `${t.value}${t.unit}`
+    })
+    .join('_')
+}
+
+const isStandardTracks = (tracks: { value: number; unit: string }[]) => {
+  return tracks.every((t) => t.unit === 'fr' && t.value === 1)
+}
+
 export const generateTailwindCode = (
   items: GridItem[],
   settings: GridSettingsMap,
+  useClassName: boolean = false,
 ): string => {
-  if (items.length === 0) return '<div class="grid"></div>'
+  const classAttr = useClassName ? 'className' : 'class'
+  
 
-  let code = '<div class="grid'
-  let previousCols: number | null = null
-  let previousGap: number | null = null
-  let previousRows: number | null = null
 
-  BREAKPOINT_ORDER.forEach((bp) => {
-    const config = settings[bp]
-    const prefix = prefixMap[bp]
-
-    if (previousCols === null || previousCols !== config.cols) {
-      code += ` ${prefix}grid-cols-${config.cols}`
-      previousCols = config.cols
+  // Let's rewrite the main function to be recursive-friendly.
+  
+  const generateGridContainer = (
+    currentItems: GridItem[],
+    currentSettings: GridSettingsMap,
+    indent: number,
+    isRoot: boolean
+  ): string => {
+    const spaces = ' '.repeat(indent)
+    let code = ''
+    
+    if (isRoot) {
+      code += `${spaces}<div ${classAttr}="grid`
+    } else {
+      code += `\n${spaces}<div ${classAttr}="grid w-full h-full`
     }
 
-    if (previousGap === null || previousGap !== config.gap) {
-      code += ` ${prefix}gap-${config.gap}`
-      previousGap = config.gap
-    }
-
-    if (previousRows === null || previousRows !== config.rows) {
-      code += ` ${prefix}grid-rows-${config.rows}`
-      previousRows = config.rows
-    }
-  })
-
-  code += '">\n'
-
-  items.forEach((item, index) => {
-    const classNames: string[] = []
+    let previousCols: string | null = null
+    let previousGap: number | null = null
+    let previousRows: string | null = null
 
     BREAKPOINT_ORDER.forEach((bp) => {
-      const layout = item.layout[bp]
+      const config = currentSettings[bp]
       const prefix = prefixMap[bp]
 
-      if (!isAuto(layout.colStart))
-        classNames.push(`${prefix}col-start-${layout.colStart}`)
-      if (!isAuto(layout.colEnd))
-        classNames.push(`${prefix}col-end-${layout.colEnd}`)
-      if (!isAuto(layout.rowStart))
-        classNames.push(`${prefix}row-start-${layout.rowStart}`)
-      if (!isAuto(layout.rowEnd))
-        classNames.push(`${prefix}row-end-${layout.rowEnd}`)
+      // Columns
+      let colsClass = ''
+      if (config.colTracks && !isStandardTracks(config.colTracks)) {
+        colsClass = `grid-cols-[${getTrackString(config.colTracks)}]`
+      } else {
+        colsClass = `grid-cols-${config.cols}`
+      }
 
-      if (isAuto(layout.colStart) && isAuto(layout.colEnd) && layout.colSpan > 1)
-        classNames.push(`${prefix}col-span-${layout.colSpan}`)
+      if (previousCols === null || previousCols !== colsClass) {
+        code += ` ${prefix}${colsClass}`
+        previousCols = colsClass
+      }
 
-      if (isAuto(layout.rowStart) && isAuto(layout.rowEnd) && layout.rowSpan > 1)
-        classNames.push(`${prefix}row-span-${layout.rowSpan}`)
+      // Gap
+      if (previousGap === null || previousGap !== config.gap) {
+        code += ` ${prefix}gap-${config.gap}`
+        previousGap = config.gap
+      }
 
-      if (!isAuto(layout.order))
-        classNames.push(`${prefix}order-${layout.order}`)
+      // Rows
+      let rowsClass = ''
+      if (config.rowTracks && !isStandardTracks(config.rowTracks)) {
+        rowsClass = `grid-rows-[${getTrackString(config.rowTracks)}]`
+      } else {
+        rowsClass = `grid-rows-${config.rows}`
+      }
+
+      if (previousRows === null || previousRows !== rowsClass) {
+        code += ` ${prefix}${rowsClass}`
+        previousRows = rowsClass
+      }
     })
 
-    if (classNames.length === 0) {
-      code += `  <div>\n    <!-- Item ${index + 1} -->\n  </div>\n`
-    } else {
-      code += `  <div class="${classNames.join(' ').trim()}">\n    <!-- Item ${
-        index + 1
-      } -->\n  </div>\n`
-    }
-  })
+    code += '">\n'
 
-  code += '</div>'
-  return code
+    currentItems.forEach((item, index) => {
+      const classNames: string[] = []
+
+      BREAKPOINT_ORDER.forEach((bp) => {
+        const layout = item.layout[bp]
+        const prefix = prefixMap[bp]
+
+        if (!isAuto(layout.colStart))
+          classNames.push(`${prefix}col-start-${layout.colStart}`)
+        if (!isAuto(layout.colEnd))
+          classNames.push(`${prefix}col-end-${layout.colEnd}`)
+        if (!isAuto(layout.rowStart))
+          classNames.push(`${prefix}row-start-${layout.rowStart}`)
+        if (!isAuto(layout.rowEnd))
+          classNames.push(`${prefix}row-end-${layout.rowEnd}`)
+
+        if (isAuto(layout.colStart) && isAuto(layout.colEnd) && layout.colSpan > 1)
+          classNames.push(`${prefix}col-span-${layout.colSpan}`)
+
+        if (isAuto(layout.rowStart) && isAuto(layout.rowEnd) && layout.rowSpan > 1)
+          classNames.push(`${prefix}row-span-${layout.rowSpan}`)
+
+        if (!isAuto(layout.order))
+          classNames.push(`${prefix}order-${layout.order}`)
+      })
+
+      const itemIndent = spaces + '  '
+      
+      if (item.subGrid && item.children) {
+        // Recursive call
+        const subGridCode = generateGridContainer(item.children, item.subGrid, indent + 4, false)
+        code += `${itemIndent}<div ${classAttr}="${classNames.join(' ').trim()}">`
+        code += `${subGridCode}`
+        code += `${itemIndent}</div>\n`
+      } else {
+        if (classNames.length === 0) {
+          code += `${itemIndent}<div>\n${itemIndent}  <!-- Item ${index + 1} -->\n${itemIndent}</div>\n`
+        } else {
+          code += `${itemIndent}<div ${classAttr}="${classNames.join(' ').trim()}">\n${itemIndent}  <!-- Item ${
+            index + 1
+          } -->\n${itemIndent}</div>\n`
+        }
+      }
+    })
+
+    code += `${spaces}</div>`
+    return code
+  }
+
+  return generateGridContainer(items, settings, 0, true)
 }

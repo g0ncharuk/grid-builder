@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { BreakpointTabs } from "@/components/breakpoint-tabs";
 import { GridSettingsPanel } from "@/components/GridSettingsPanel";
 import { ItemsPanel } from "@/components/ItemsPanel";
@@ -49,6 +49,8 @@ function App() {
     setCurrentBreakpoint,
     selectedItemId,
     setSelectedItemId,
+    selectedItem,
+    findParent,
     showGrid,
     setShowGrid,
     dragMode,
@@ -67,6 +69,7 @@ function App() {
     importPreset,
     undo,
     redo,
+    convertItemToGrid,
   } = useGridState();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -126,9 +129,11 @@ function App() {
     [importPreset, showNotification]
   );
 
+  const [useClassName, setUseClassName] = useState(false);
+
   const generatedCode = useMemo(
-    () => generateTailwindCode(items, gridSettings),
-    [items, gridSettings]
+    () => generateTailwindCode(items, gridSettings, useClassName),
+    [items, gridSettings, useClassName]
   );
 
   const handleCopyCode = useCallback(() => {
@@ -136,7 +141,46 @@ function App() {
     showNotification("Tailwind code copied to clipboard");
   }, [generatedCode, showNotification]);
 
-  const currentSettings = gridSettings[currentBreakpoint];
+  // Determine active grid context
+  const parentItem = selectedItemId ? findParent(selectedItemId) : null;
+  
+  const activeGridId = selectedItem?.subGrid 
+    ? selectedItem.id 
+    : (parentItem ? parentItem.id : undefined);
+
+  const activeSettings = (() => {
+    if (selectedItem?.subGrid) return selectedItem.subGrid[currentBreakpoint];
+    if (parentItem?.subGrid) return parentItem.subGrid[currentBreakpoint];
+    return gridSettings[currentBreakpoint];
+  })();
+    
+  const handleUpdateGridSetting = useCallback((key: any, value: any) => {
+    updateGridSetting(key, value, activeGridId);
+  }, [updateGridSetting, activeGridId]);
+
+  const handleAddItem = useCallback(() => {
+    addItem(activeGridId);
+  }, [addItem, activeGridId]);
+
+  const handleClearItems = useCallback(() => {
+    clearItems(activeGridId);
+  }, [clearItems, activeGridId]);
+
+  const handleConvertToGrid = useCallback(() => {
+    if (selectedItemId) convertItemToGrid(selectedItemId);
+  }, [selectedItemId, convertItemToGrid]);
+
+  const handleNavigateUp = useCallback(() => {
+    if (parentItem) {
+      setSelectedItemId(parentItem.id);
+    } else {
+      setSelectedItemId(null);
+    }
+  }, [parentItem, setSelectedItemId]);
+
+  // ItemsPanel should show siblings of selected item (or root items if no parent)
+  const activeItems = parentItem ? parentItem.children || [] : items;
+
   const currentIndex = BREAKPOINT_ORDER.indexOf(currentBreakpoint);
 
   return (
@@ -190,21 +234,23 @@ function App() {
         <main className="mt-6 mx-auto grid w-full max-w-[1600px] gap-6 px-6 pb-12 2xl:grid-cols-[360px_minmax(0,1fr)_360px]">
           <div className="flex flex-col gap-6">
             <GridSettingsPanel
-              settings={currentSettings}
-              onSettingChange={updateGridSetting}
-              onAddItem={addItem}
-              onClearItems={clearItems}
+              title={activeGridId ? `Subgrid (Item ${activeGridId})` : "Grid Configuration"}
+              settings={activeSettings}
+              onSettingChange={handleUpdateGridSetting}
+              onAddItem={handleAddItem}
+              onClearItems={handleClearItems}
               onExport={handleExport}
               onImport={handleImportClick}
               onApplyTemplate={applyTemplate}
               templates={templateButtons}
+              onConvertToGrid={selectedItem && !selectedItem.subGrid ? handleConvertToGrid : undefined}
             />
           </div>
 
           <PreviewCanvas
             items={items}
             breakpoint={currentBreakpoint}
-            settings={currentSettings}
+            settings={gridSettings[currentBreakpoint]} // Root settings for the canvas wrapper? No, PreviewCanvas takes root settings.
             showGrid={showGrid}
             dragMode={dragMode}
             onToggleShowGrid={setShowGrid}
@@ -214,10 +260,12 @@ function App() {
             onCopyCode={handleCopyCode}
             selectedItemId={selectedItemId}
             onSelect={setSelectedItemId}
+            useClassName={useClassName}
+            onToggleUseClassName={setUseClassName}
           />
           
           <ItemsPanel
-            items={items}
+            items={activeItems}
             breakpoint={currentBreakpoint}
             nextBreakpoint={
               BREAKPOINT_ORDER[
@@ -229,10 +277,13 @@ function App() {
             onDuplicate={duplicateItem}
             onRemove={removeItem}
             onCopyFrom={handleCopyFromBreakpoint}
+            onConvertToGrid={convertItemToGrid}
             canCopyPrev={currentIndex > 0}
             canCopyNext={currentIndex < BREAKPOINT_ORDER.length - 1}
             selectedItemId={selectedItemId}
             onSelect={setSelectedItemId}
+            parentItem={parentItem}
+            onNavigateUp={handleNavigateUp}
           />
         </main>
         <Toast message={toast} />
